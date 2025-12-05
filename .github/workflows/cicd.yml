@@ -60,7 +60,7 @@ jobs:
       # Configure Git
       - name: Configure Git
         run: |
-          git config --global user.email "osung996@gmail.com"
+          git config --global user.email "osung996@gmail.com"ps:
           git config --global user.name "sam-osung"
 
       # Update image tag
