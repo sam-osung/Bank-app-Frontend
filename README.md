@@ -1,5 +1,4 @@
-# Digital Witch Cloud Security / DevOps Project On Bank Managmenet App
-## This is the frontend app which is coded and  Create React App comprising CSS, Html, js. 
+## This is a React App. 
 
 ## Note this app highly depend on the backend to run. ensure the backend is running fine. 
 
