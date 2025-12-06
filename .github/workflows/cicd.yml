@@ -6,7 +6,7 @@ on:
       - main
 
 jobs:
-  Continuous-Integration_build_and_push:
+  Continues-Integration_build_and_push:
     runs-on: ubuntu-latest
 
     steps:
@@ -14,45 +14,71 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
         with:
-          repository: sam-osung/banking-app-with-k8s
+          repository: sam-osung/Bank-app-Frontend
           ref: main
 
       # 2️⃣ Configure AWS credentials
-      - name: Configure AWS CLI
+      - name: Log in to awscli
         uses: aws-actions/configure-aws-credentials@v3
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      # 3️⃣ Debug runner workspace
-      - name: Debug runner workspace
+      # 3️⃣ Build Docker image from repo root
+      - name: Build container image
+        run: docker build -t bank-app-frontend:latest Dockerfile .
+        working-directory: ${{ github.workspace }}
+
+      # 4️⃣ Log in to ECR
+      - name: Log in to ECR with short-lived credentials
         run: |
-          pwd
-          ls -al
-          ls -al Dockerfile
+          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${{ vars.ECR_REPO }}
 
-# Uncomment and fix the Docker/ECR steps when ready:
-#      # 4️⃣ Build Docker image
-#      - name: Build container image
-#        run: docker build -t bank-app-frontend:latest .
-#        working-directory: ${{ github.workspace }}
+      # 5️⃣ Tag Docker image
+      - name: Tag Docker image
+        run: docker tag bank-app-frontend:latest ${{ vars.ECR_REPO }}/dev-bankfrontend:${{ github.run_number }}
 
-#      # 5️⃣ Log in to ECR
-#      - name: Log in to ECR
-#        run: |
-#          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${{ vars.ECR_REPO }}
+      # 6️⃣ Push Docker image to ECR
+      - name: Push image to ECR
+        run: docker push ${{ vars.ECR_REPO }}/dev-bankfrontend:${{ github.run_number }}
 
-#      # 6️⃣ Tag Docker image
-#      - name: Tag Docker image
-#        run: docker tag bank-app-frontend:latest ${{ vars.ECR_REPO }}/dev-bankfrontend:${{ github.run_number }}
+      # 7️⃣ Clean up Docker images locally
+      - name: Clean up Docker images locally
+        run: |
+          docker rmi bank-app-frontend:latest
+          docker rmi ${{ vars.ECR_REPO }}/dev-bankfrontend:${{ github.run_number }}
 
-#      # 7️⃣ Push Docker image
-#      - name: Push image to ECR
-#        run: docker push ${{ vars.ECR_REPO }}/dev-bankfrontend:${{ github.run_number }}
+  Continues-Update_k8s_manifest:
+    runs-on: ubuntu-latest
+    needs: Continues-Integration_build_and_push
 
-#      # 8️⃣ Clean up local Docker images
-#      - name: Clean up Docker images
-#        run: |
-#          docker rmi bank-app-frontend:latest
-#          docker rmi ${{ vars.ECR_REPO }}/dev-bankfrontend:${{ github.run_number }}
+    steps:
+      # 1️⃣ Checkout Kubernetes manifest repo
+      - name: Checkout repo
+        uses: actions/checkout@v3
+        with:
+          repository: sam-osung/banking-app-with-k8s
+          ref: main
+          persist-credentials: false
+
+      # 2️⃣ Configure Git
+      - name: Configure Git
+        run: |
+          git config --global user.email "osung996@gmail.com"
+          git config --global user.name "sam-osung"
+
+      # 3️⃣ Update frontend image tag
+      - name: Update frontend image tag
+        run: |
+          sed -i "s+${{ vars.ECR_REPO }}/dev-bankfrontend:.*+${{ vars.ECR_REPO }}/dev-bankfrontend:${{ github.run_number }}+g" ./bankapp-manifests/frontend-deployment.yaml
+          git add ./bankapp-manifests/frontend-deployment.yaml
+          git commit -m "Update frontend image to version ${{ github.run_number }}" || echo "No changes to commit"
+
+      # 4️⃣ Push updated manifest using PAT
+      - name: Push updated manifest
+        env:
+          GIT_USERNAME: ${{ secrets.GIT_USERNAME }}
+          GIT_PASSWORD: ${{ secrets.GIT_PASSWORD }}
+        run: |
+          git push https://${GIT_USERNAME}:${GIT_PASSWORD}@github.com/sam-osung/banking-app-with-k8s.git main
