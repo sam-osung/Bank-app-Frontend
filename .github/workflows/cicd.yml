@@ -31,15 +31,15 @@ jobs:
           aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${{ vars.ECR_REPO }}
 
       - name: Tag Docker image
-        run: docker tag bank-app-frontend:latest ${{ vars.ECR_REPO }}/bank-frontend:${{ github.run_number }}
+        run: docker tag bank-app-frontend:latest ${{ vars.ECR_REPO }}/dev-bankfrontend:${{ github.run_number }}
 
       - name: Push image to ECR
-        run: docker push ${{ vars.ECR_REPO }}/bank-frontend:${{ github.run_number }}
+        run: docker push ${{ vars.ECR_REPO }}/dev-bankfrontend:${{ github.run_number }}
 
       - name: Clean up Docker image locally
         run: |
           docker rmi bank-app-frontend:latest
-          docker rmi ${{ vars.ECR_REPO }}/bank-frontend:${{ github.run_number }}
+          docker rmi ${{ vars.ECR_REPO }}/dev-bankfrontend:${{ github.run_number }}
 
       - name: Clean up GitHub repo on runner
         run: rm -rf ./*
@@ -66,7 +66,7 @@ jobs:
       # Update image tag
       - name: Update frontend image tag
         run: |
-          sed -i "s+${{ vars.ECR_REPO }}/bank-frontend:.*+${{ vars.ECR_REPO }}/bank-frontend:${{ github.run_number }}+g" ./bankapp-manifests/frontend-deployment.yaml
+          sed -i "s+${{ vars.ECR_REPO }}/dev-bankfrontend:.*+${{ vars.ECR_REPO }}/dev-bankfrontend:${{ github.run_number }}+g" ./bankapp-manifests/frontend-deployment.yaml
           git add ./bankapp-manifests/frontend-deployment.yaml
           git commit -m "Update frontend image to version ${{ github.run_number }}" || echo "No changes to commit"
 

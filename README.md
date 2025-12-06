@@ -8,7 +8,6 @@
 ![App Preview](architecture-HIPPAA.drawio.svg)
 
 
-
 ## The Dockerfile runs the following to bring the app up
 
 In the project directory, you can see the Dockerfile:
