@@ -10,12 +10,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 1️⃣ Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v3
         with:
           repository: sam-osung/banking-app-with-k8s
           ref: main
 
+      # 2️⃣ Configure AWS credentials
       - name: Log in to awscli
         uses: aws-actions/configure-aws-credentials@v3
         with:
@@ -23,54 +25,57 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
+      # 3️⃣ Build Docker image from repo root
       - name: Build container image
-        run: docker build -t bank-app-frontend:latest .
+        run: docker build -t bank-app-frontend:latest -f ./Dockerfile .
+        working-directory: ${{ github.workspace }}
 
+      # 4️⃣ Log in to ECR
       - name: Log in to ECR with short-lived credentials
         run: |
           aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${{ vars.ECR_REPO }}
 
+      # 5️⃣ Tag Docker image
       - name: Tag Docker image
         run: docker tag bank-app-frontend:latest ${{ vars.ECR_REPO }}/dev-bankfrontend:${{ github.run_number }}
 
+      # 6️⃣ Push Docker image to ECR
       - name: Push image to ECR
         run: docker push ${{ vars.ECR_REPO }}/dev-bankfrontend:${{ github.run_number }}
 
-      - name: Clean up Docker image locally
+      # 7️⃣ Clean up Docker images locally
+      - name: Clean up Docker images locally
         run: |
           docker rmi bank-app-frontend:latest
           docker rmi ${{ vars.ECR_REPO }}/dev-bankfrontend:${{ github.run_number }}
-
-      - name: Clean up GitHub repo on runner
-        run: rm -rf ./*
 
   Continues-Update_k8s_manifest:
     runs-on: ubuntu-latest
     needs: Continues-Integration_build_and_push
 
     steps:
-      # Checkout the manifests repo
-      - name: Checkout Kubernetes manifest repo
+      # 1️⃣ Checkout Kubernetes manifest repo
+      - name: Checkout repo
         uses: actions/checkout@v3
         with:
           repository: sam-osung/banking-app-with-k8s
           ref: main
-          persist-credentials: false  # Important: disables using github-actions bot token
+          persist-credentials: false
 
-      # Configure Git
+      # 2️⃣ Configure Git
       - name: Configure Git
         run: |
-          git config --global user.email "osung996@gmail.com"ps:
+          git config --global user.email "osung996@gmail.com"
           git config --global user.name "sam-osung"
 
-      # Update image tag
+      # 3️⃣ Update frontend image tag
       - name: Update frontend image tag
         run: |
           sed -i "s+${{ vars.ECR_REPO }}/dev-bankfrontend:.*+${{ vars.ECR_REPO }}/dev-bankfrontend:${{ github.run_number }}+g" ./bankapp-manifests/frontend-deployment.yaml
           git add ./bankapp-manifests/frontend-deployment.yaml
           git commit -m "Update frontend image to version ${{ github.run_number }}" || echo "No changes to commit"
 
-      # Push changes using PAT
+      # 4️⃣ Push updated manifest using PAT
       - name: Push updated manifest
         env:
           GIT_USERNAME: ${{ secrets.GIT_USERNAME }}
