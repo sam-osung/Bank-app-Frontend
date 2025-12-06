@@ -27,7 +27,7 @@ jobs:
 
       # 3️⃣ Build Docker image from repo root
       - name: Build container image
-        run: docker build -t bank-app-frontend:latest Dockerfile .
+        run: docker build -t bank-app-frontend:latest .
         working-directory: ${{ github.workspace }}
 
       # 4️⃣ Log in to ECR
