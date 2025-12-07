@@ -45,4 +45,3 @@ In the project directory, you can see the Dockerfile:
 
 ## Start nginx server
 ## `CMD ["nginx", "-g", "daemon off;"]`
-
